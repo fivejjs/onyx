@@ -214,6 +214,7 @@ class DocumentSource(str, Enum):
     IMAP = "imap"
     BITBUCKET = "bitbucket"
     TESTRAIL = "testrail"
+    SURREALDB = "surrealdb"
 
     # Special case just for integration tests
     MOCK_CONNECTOR = "mock_connector"
@@ -249,6 +250,7 @@ class BlobType(str, Enum):
 class DocumentIndexType(str, Enum):
     COMBINED = "combined"  # Vespa
     SPLIT = "split"  # Typesense + Qdrant
+    SURREALDB = "surrealdb"  # SurrealDB
 
 
 class AuthType(str, Enum):
@@ -632,4 +634,5 @@ project management, and collaboration tools into a single, customizable platform
     DocumentSource.DRUPAL_WIKI: "drupal wiki - knowledge base content (pages, spaces, attachments)",
     DocumentSource.IMAP: "imap - email data",
     DocumentSource.TESTRAIL: "testrail - test case management tool for QA processes",
+    DocumentSource.SURREALDB: "surrealdb - database",
 }

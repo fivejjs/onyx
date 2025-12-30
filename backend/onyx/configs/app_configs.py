@@ -6,7 +6,7 @@ from datetime import timezone
 from typing import cast
 
 from onyx.auth.schemas import AuthBackend
-from onyx.configs.constants import AuthType
+from onyx.configs.constants import AuthType, DocumentIndexType
 from onyx.configs.constants import QueryHistoryType
 from onyx.file_processing.enums import HtmlBasedConnectorTransformLinksStrategy
 from onyx.prompts.image_analysis import DEFAULT_IMAGE_SUMMARIZATION_SYSTEM_PROMPT
@@ -199,6 +199,18 @@ VESPA_CLOUD_URL = os.environ.get("VESPA_CLOUD_URL", "")
 
 VESPA_CLOUD_CERT_PATH = os.environ.get("VESPA_CLOUD_CERT_PATH")
 VESPA_CLOUD_KEY_PATH = os.environ.get("VESPA_CLOUD_KEY_PATH")
+
+# Document Index Configs
+DOCUMENT_INDEX_TYPE = DocumentIndexType(
+    (os.environ.get("DOCUMENT_INDEX_TYPE") or DocumentIndexType.COMBINED.value).lower()
+)
+
+# SurrealDB Configs
+SURREALDB_ENDPOINT = os.environ.get("SURREALDB_ENDPOINT") or "http://localhost:8000"
+SURREALDB_NAMESPACE = os.environ.get("SURREALDB_NAMESPACE") or "onyx"
+SURREALDB_DATABASE = os.environ.get("SURREALDB_DATABASE") or "onyx"
+SURREALDB_USER = os.environ.get("SURREALDB_USER") or "root"
+SURREALDB_PASSWORD = os.environ.get("SURREALDB_PASSWORD") or "root"
 
 # Number of documents in a batch during indexing (further batching done by chunks before passing to bi-encoder)
 INDEX_BATCH_SIZE = int(os.environ.get("INDEX_BATCH_SIZE") or 16)
