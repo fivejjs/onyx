@@ -9,7 +9,7 @@ import { SettingsContext } from "@/components/settings/SettingsProvider";
 import { getSourceMetadata } from "@/lib/sources";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { useFederatedOAuthStatus } from "@/lib/hooks/useFederatedOAuthStatus";
+import useFederatedOAuthStatus from "@/hooks/useFederatedOAuthStatus";
 import Text from "@/refresh-components/texts/Text";
 import { SvgLink } from "@opal/icons";
 export interface FederatedConnectorOAuthStatus {
@@ -153,7 +153,7 @@ export default function FederatedOAuthModal() {
         <Modal.Content small>
           <Modal.Header icon={SvgLink} title="Heads Up!" />
           <Modal.Body>
-            <Text>
+            <Text as="p">
               You can always connect your apps later by going to the{" "}
               <strong>User Settings</strong> menu (click your profile icon) and
               selecting <strong>Connectors</strong>.

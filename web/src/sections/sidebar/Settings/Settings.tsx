@@ -21,7 +21,15 @@ import { cn } from "@/lib/utils";
 import SidebarTab from "@/refresh-components/buttons/SidebarTab";
 import { useCreateModal } from "@/refresh-components/contexts/ModalContext";
 import UserSettings from "@/sections/sidebar/Settings/UserSettings";
-import { SvgBell, SvgLogOut, SvgUser, SvgX } from "@opal/icons";
+import NotificationsPopover from "@/sections/sidebar/Settings/NotificationsPopover";
+
+import {
+  SvgBell,
+  SvgExternalLink,
+  SvgLogOut,
+  SvgUser,
+  SvgNotificationBubble,
+} from "@opal/icons";
 
 function getDisplayName(email?: string, personalName?: string): string {
   // Prioritize custom personal name if set
@@ -104,6 +112,13 @@ function SettingsPopover({
                 : ""
             }`}
           </LineItem>,
+          <LineItem
+            key="help-faq"
+            icon={SvgExternalLink}
+            onClick={() => window.open("https://docs.onyx.app", "_blank")}
+          >
+            Help & FAQ
+          </LineItem>,
           null,
           showLogout && (
             <LineItem
@@ -121,43 +136,6 @@ function SettingsPopover({
   );
 }
 
-interface NotificationsPopoverProps {
-  onClose: () => void;
-}
-
-function NotificationsPopover({ onClose }: NotificationsPopoverProps) {
-  const { data: notifications } = useSWR<Notification[]>(
-    "/api/notifications",
-    errorHandlingFetcher
-  );
-
-  return (
-    <div className="w-[20rem] h-[30rem] flex flex-col">
-      <div className="flex flex-row justify-between items-center p-4">
-        <Text headingH2>Notifications</Text>
-        <SvgX
-          className="stroke-text-05 w-[1.2rem] h-[1.2rem] hover:stroke-text-04 cursor-pointer"
-          onClick={onClose}
-        />
-      </div>
-
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-2 items-center">
-        {!notifications || notifications.length === 0 ? (
-          <div className="w-full h-full flex flex-col justify-center items-center">
-            <Text>No notifications</Text>
-          </div>
-        ) : (
-          <div className="w-full flex flex-col gap-2">
-            {notifications?.map((notification, index) => (
-              <Text key={index}>{notification.notif_type}</Text>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export interface SettingsProps {
   folded?: boolean;
 }
@@ -169,7 +147,13 @@ export default function Settings({ folded }: SettingsProps) {
   const { user } = useUser();
   const userSettingsModal = useCreateModal();
 
+  const { data: notifications } = useSWR<Notification[]>(
+    "/api/notifications",
+    errorHandlingFetcher
+  );
+
   const displayName = getDisplayName(user?.email, user?.personalization?.name);
+  const hasNotifications = notifications && notifications.length > 0;
 
   const handlePopoverOpen = (state: boolean) => {
     if (state) {
@@ -202,11 +186,18 @@ export default function Settings({ folded }: SettingsProps) {
                     "w-5 h-5"
                   )}
                 >
-                  <Text inverted secondaryBody>
+                  <Text as="p" inverted secondaryBody>
                     {displayName[0]?.toUpperCase()}
                   </Text>
                 </InputAvatar>
               )}
+              rightChildren={
+                hasNotifications && (
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <SvgNotificationBubble size={6} />
+                  </div>
+                )
+              }
               transient={!!popupState}
               folded={folded}
             >
@@ -225,7 +216,10 @@ export default function Settings({ folded }: SettingsProps) {
             />
           )}
           {popupState === "Notifications" && (
-            <NotificationsPopover onClose={() => setPopupState("Settings")} />
+            <NotificationsPopover
+              onClose={() => setPopupState("Settings")}
+              onNavigate={() => setPopupState(undefined)}
+            />
           )}
         </PopoverContent>
       </Popover>

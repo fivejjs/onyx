@@ -148,6 +148,7 @@ export default function Page() {
     dispatchSearchModal({
       type: "OPEN",
       providerType,
+      existingProviderId: provider?.id ?? null,
       initialApiKeyValue:
         requiresApiKey && hasStoredKey ? MASKED_API_KEY_PLACEHOLDER : "",
       initialConfigValue: getSingleConfigFieldValueForForm(
@@ -167,6 +168,7 @@ export default function Page() {
     dispatchContentModal({
       type: "OPEN",
       providerType,
+      existingProviderId: provider?.id ?? null,
       initialApiKeyValue: hasStoredKey ? MASKED_API_KEY_PLACEHOLDER : "",
       initialConfigValue:
         providerType === "firecrawl"
@@ -367,7 +369,7 @@ export default function Page() {
         : undefined);
 
     return (
-      <div className="container">
+      <>
         <AdminPageTitle
           title="Web Search"
           icon={SvgGlobe}
@@ -376,18 +378,18 @@ export default function Page() {
         <Callout type="danger" title="Failed to load web search settings">
           {message}
           {detail && (
-            <Text className="mt-2 text-text-03" mainContentBody text03>
+            <Text as="p" className="mt-2 text-text-03" mainContentBody text03>
               {detail}
             </Text>
           )}
         </Callout>
-      </div>
+      </>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="container">
+      <>
         <AdminPageTitle
           title="Web Search"
           icon={SvgGlobe}
@@ -396,7 +398,7 @@ export default function Page() {
         <div className="mt-8">
           <ThreeDotsLoader />
         </div>
-      </div>
+      </>
     );
   }
 
@@ -410,9 +412,12 @@ export default function Page() {
       searchProviderValues.config
     );
 
-    const existingProvider = searchProviders.find(
-      (provider) => provider.provider_type === selectedProviderType
-    );
+    // Use the stored provider ID from the modal state instead of looking it up again.
+    // This ensures we update the correct provider even if the data has changed.
+    const existingProviderId = searchModal.existingProviderId;
+    const existingProvider = existingProviderId
+      ? searchProviders.find((p) => p.id === existingProviderId)
+      : null;
 
     const providerRequiresApiKey =
       searchProviderRequiresApiKey(selectedProviderType);
@@ -703,9 +708,12 @@ export default function Page() {
       contentProviderValues.config
     );
 
-    const existingProvider = contentProviders.find(
-      (provider) => provider.provider_type === selectedContentProviderType
-    );
+    // Use the stored provider ID from the modal state instead of looking it up again.
+    // This ensures we update the correct provider even if the data has changed.
+    const existingProviderId = contentModal.existingProviderId;
+    const existingProvider = existingProviderId
+      ? contentProviders.find((p) => p.id === existingProviderId)
+      : null;
 
     // Check if config changed from stored values
     const storedBaseUrl = getSingleContentConfigFieldValueForForm(
@@ -757,10 +765,10 @@ export default function Page() {
 
   return (
     <>
-      <div className="container">
+      <>
         <AdminPageTitle icon={SvgGlobe} title="Web Search" />
         <div className="pt-4 pb-4">
-          <Text className="text-text-dark">
+          <Text as="p" className="text-text-dark">
             Search settings for external search across the internet.
           </Text>
         </div>
@@ -770,10 +778,11 @@ export default function Page() {
         <div className="flex w-full flex-col gap-8 pb-6">
           <div className="flex w-full max-w-[960px] flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <Text mainContentEmphasis text05>
+              <Text as="p" mainContentEmphasis text05>
                 Search Engine
               </Text>
               <Text
+                as="p"
                 className="flex items-start gap-[2px] self-stretch text-text-03"
                 secondaryBody
                 text03
@@ -808,7 +817,7 @@ export default function Page() {
                       <InfoIcon size={16} />
                     </div>
                   </div>
-                  <Text className="flex-1 px-0.5" mainUiBody text04>
+                  <Text as="p" className="flex-1 px-0.5" mainUiBody text04>
                     {hasConfiguredSearchProvider
                       ? "Select a search engine to enable web search."
                       : "Connect a search engine to set up web search."}
@@ -904,10 +913,10 @@ export default function Page() {
                           isHighlighted,
                         })}
                         <div className="flex flex-col gap-0.5">
-                          <Text mainUiAction text05>
+                          <Text as="p" mainUiAction text05>
                             {label}
                           </Text>
-                          <Text secondaryBody text03>
+                          <Text as="p" secondaryBody text03>
                             {subtitle}
                           </Text>
                         </div>
@@ -926,7 +935,6 @@ export default function Page() {
                                 provider
                               );
                             }}
-                            className="h-6 w-6 opacity-70 hover:opacity-100"
                             aria-label={`Edit ${label}`}
                           />
                         )}
@@ -977,10 +985,11 @@ export default function Page() {
 
           <div className="flex w-full max-w-[960px] flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <Text mainContentEmphasis text05>
+              <Text as="p" mainContentEmphasis text05>
                 Web Crawler
               </Text>
               <Text
+                as="p"
                 className="flex items-start gap-[2px] self-stretch text-text-03"
                 secondaryBody
                 text03
@@ -1102,10 +1111,10 @@ export default function Page() {
                         isHighlighted: isCurrentCrawler,
                       })}
                       <div className="flex flex-col gap-0.5">
-                        <Text mainUiAction text05>
+                        <Text as="p" mainUiAction text05>
                           {label}
                         </Text>
-                        <Text secondaryBody text03>
+                        <Text as="p" secondaryBody text03>
                           {subtitle}
                         </Text>
                       </div>
@@ -1124,7 +1133,6 @@ export default function Page() {
                                 provider
                               );
                             }}
-                            className="h-6 w-6 opacity-70 hover:opacity-100"
                             aria-label={`Edit ${label}`}
                           />
                         )}
@@ -1174,7 +1182,7 @@ export default function Page() {
             </div>
           </div>
         </div>
-      </div>
+      </>
 
       <WebProviderSetupModal
         isOpen={selectedProviderType !== null}

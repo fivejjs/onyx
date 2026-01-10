@@ -369,6 +369,8 @@ class Notification(Base):
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
     last_shown: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
     first_shown: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True))
+    title: Mapped[str] = mapped_column(String)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="notifications")
     additional_data: Mapped[dict | None] = mapped_column(
@@ -532,7 +534,6 @@ class ConnectorCredentialPair(Base):
     """
 
     __tablename__ = "connector_credential_pair"
-    is_user_file: Mapped[bool] = mapped_column(Boolean, default=False)
     # NOTE: this `id` column has to use `Sequence` instead of `autoincrement=True`
     # due to some SQLAlchemy quirks + this not being a primary key column
     id: Mapped[int] = mapped_column(
@@ -2393,6 +2394,8 @@ class LLMProvider(Base):
     default_vision_model: Mapped[str | None] = mapped_column(String, nullable=True)
     # EE only
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Auto mode: models, visibility, and defaults are managed by GitHub config
+    is_auto_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     groups: Mapped[list["UserGroup"]] = relationship(
         "UserGroup",
         secondary="llm_provider__user_group",
@@ -2448,6 +2451,29 @@ class ModelConfiguration(Base):
     llm_provider: Mapped["LLMProvider"] = relationship(
         "LLMProvider",
         back_populates="model_configurations",
+    )
+
+
+class ImageGenerationConfig(Base):
+    __tablename__ = "image_generation_config"
+
+    image_provider_id: Mapped[str] = mapped_column(String, primary_key=True)
+    model_configuration_id: Mapped[int] = mapped_column(
+        ForeignKey("model_configuration.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    model_configuration: Mapped["ModelConfiguration"] = relationship(
+        "ModelConfiguration"
+    )
+
+    __table_args__ = (
+        Index("ix_image_generation_config_is_default", "is_default"),
+        Index(
+            "ix_image_generation_config_model_configuration_id",
+            "model_configuration_id",
+        ),
     )
 
 
@@ -3544,9 +3570,6 @@ class UserFile(Base):
         back_populates="user_files",
     )
     file_id: Mapped[str] = mapped_column(nullable=False)
-    document_id: Mapped[str] = mapped_column(
-        nullable=False
-    )  # TODO(subash): legacy document_id, will be removed in a future migration
     name: Mapped[str] = mapped_column(nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         default=datetime.datetime.utcnow
@@ -3574,9 +3597,6 @@ class UserFile(Base):
 
     link_url: Mapped[str | None] = mapped_column(String, nullable=True)
     content_type: Mapped[str | None] = mapped_column(String, nullable=True)
-    document_id_migrated: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
 
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject",
@@ -3936,4 +3956,46 @@ class License(Base):
     )
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class TenantUsage(Base):
+    """
+    Tracks per-tenant usage statistics within a time window for cloud usage limits.
+
+    Each row represents usage for a specific tenant during a specific time window.
+    A new row is created when the window rolls over (typically weekly).
+    """
+
+    __tablename__ = "tenant_usage"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # The start of the usage tracking window (e.g., start of the week in UTC)
+    window_start: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+
+    # Cumulative LLM usage cost in cents for the window
+    llm_cost_cents: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    # Number of chunks indexed during the window
+    chunks_indexed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Number of API calls using API keys or Personal Access Tokens
+    api_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Number of non-streaming API calls (more expensive operations)
+    non_streaming_api_calls: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+
+    # Last updated timestamp for tracking freshness
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        # Ensure only one row per window start (tenant_id is in the schema name)
+        UniqueConstraint("window_start", name="uq_tenant_usage_window"),
     )

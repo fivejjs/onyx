@@ -14,21 +14,22 @@ from onyx.configs.model_configs import DEFAULT_REASONING_EFFORT
 from onyx.configs.model_configs import GEN_AI_TEMPERATURE
 from onyx.configs.model_configs import LITELLM_EXTRA_BODY
 from onyx.llm.constants import LlmProviderNames
+from onyx.llm.cost import calculate_llm_cost_cents
 from onyx.llm.interfaces import LanguageModelInput
 from onyx.llm.interfaces import LLM
 from onyx.llm.interfaces import LLMConfig
 from onyx.llm.interfaces import LLMUserIdentity
 from onyx.llm.interfaces import ReasoningEffort
 from onyx.llm.interfaces import ToolChoiceOptions
-from onyx.llm.llm_provider_options import VERTEX_CREDENTIALS_FILE_KWARG
-from onyx.llm.llm_provider_options import VERTEX_LOCATION_KWARG
 from onyx.llm.model_response import ModelResponse
 from onyx.llm.model_response import ModelResponseStream
-from onyx.llm.models import CLAUDE_REASONING_BUDGET_TOKENS
+from onyx.llm.model_response import Usage
 from onyx.llm.models import OPENAI_REASONING_EFFORT
 from onyx.llm.utils import build_litellm_passthrough_kwargs
 from onyx.llm.utils import is_true_openai_model
 from onyx.llm.utils import model_is_reasoning_model
+from onyx.llm.well_known_providers.constants import VERTEX_CREDENTIALS_FILE_KWARG
+from onyx.llm.well_known_providers.constants import VERTEX_LOCATION_KWARG
 from onyx.server.utils import mask_string
 from onyx.utils.logger import setup_logger
 from onyx.utils.long_term_log import LongTermLogger
@@ -223,6 +224,48 @@ class LitellmLLM(LLM):
                 category=_LLM_PROMPT_LONG_TERM_LOG_CATEGORY,
             )
 
+    def _track_llm_cost(self, usage: Usage) -> None:
+        """
+        Track LLM usage cost for Onyx-managed API keys.
+
+        This is called after every LLM call completes (streaming or non-streaming).
+        Cost is only tracked if:
+        1. Usage limits are enabled for this deployment
+        2. The API key is one of Onyx's managed default keys
+        """
+
+        from onyx.server.usage_limits import is_usage_limits_enabled
+
+        if not is_usage_limits_enabled():
+            return
+
+        from onyx.server.usage_limits import is_onyx_managed_api_key
+
+        if not is_onyx_managed_api_key(self._api_key):
+            return
+        # Import here to avoid circular imports
+        from onyx.db.engine.sql_engine import get_session_with_current_tenant
+        from onyx.db.usage import increment_usage
+        from onyx.db.usage import UsageType
+
+        # Calculate cost in cents
+        cost_cents = calculate_llm_cost_cents(
+            model_name=self._model_version,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+        )
+
+        if cost_cents <= 0:
+            return
+
+        try:
+            with get_session_with_current_tenant() as db_session:
+                increment_usage(db_session, UsageType.LLM_COST, cost_cents)
+                db_session.commit()
+        except Exception as e:
+            # Log but don't fail the LLM call if tracking fails
+            logger.warning(f"Failed to track LLM cost: {e}")
+
     def _completion(
         self,
         prompt: LanguageModelInput,
@@ -252,10 +295,15 @@ class LitellmLLM(LLM):
         is_openai_model = is_true_openai_model(
             self.config.model_provider, self.config.model_name
         )
+        is_ollama = self._model_provider == LlmProviderNames.OLLAMA_CHAT
+        is_mistral = self._model_provider == LlmProviderNames.MISTRAL
 
         #########################
         # Build arguments
         #########################
+        # Optional kwargs - should only be passed to LiteLLM under certain conditions
+        optional_kwargs: dict[str, Any] = {}
+
         # Model name
         model_provider = (
             f"{self.config.model_provider}/responses"
@@ -279,26 +327,13 @@ class LitellmLLM(LLM):
         # Temperature
         temperature = 1 if is_reasoning else self._temperature
 
-        # Optional kwargs - should only be passed to LiteLLM under certain conditions
-        optional_kwargs: dict[str, Any] = {}
-
         if stream:
             optional_kwargs["stream_options"] = {"include_usage": True}
 
-        if is_reasoning:
-            # Use configured default if not provided (if not set in env, low)
-            reasoning_effort = reasoning_effort or ReasoningEffort(
-                DEFAULT_REASONING_EFFORT
-            )
-
-            if is_claude_model and reasoning_effort != ReasoningEffort.OFF:
-                # Anthropic Claude models use `thinking` with budget_tokens
-                # for extended thinking across all providers
-                optional_kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": CLAUDE_REASONING_BUDGET_TOKENS[reasoning_effort],
-                }
-            elif is_openai_model:
+        # Use configured default if not provided (if not set in env, low)
+        reasoning_effort = reasoning_effort or ReasoningEffort(DEFAULT_REASONING_EFFORT)
+        if is_reasoning and reasoning_effort != ReasoningEffort.OFF:
+            if is_openai_model:
                 # OpenAI API does not accept reasoning params for GPT 5 chat models
                 # (neither reasoning nor reasoning_effort are accepted)
                 # even though they are reasoning models (bug in OpenAI)
@@ -308,6 +343,8 @@ class LitellmLLM(LLM):
                         "summary": "auto",
                     }
             else:
+                # Note that litellm auto maps reasoning_effort to thinking
+                # and budget_tokens for Anthropic Claude models
                 optional_kwargs["reasoning_effort"] = reasoning_effort
 
         if tools:
@@ -317,9 +354,12 @@ class LitellmLLM(LLM):
         if structured_response_format:
             optional_kwargs["response_format"] = structured_response_format
 
-        if not is_claude_model:
+        if not (is_claude_model or is_ollama or is_mistral):
             # Litellm bug: tool_choice is dropped silently if not specified here for OpenAI
-            # However, this param breaks Anthropic models, so it must be conditionally included
+            # However, this param breaks Anthropic and Mistral models,
+            # so it must be conditionally included.
+            # Additionally, tool_choice is not supported by Ollama and causes warnings if included.
+            # See also, https://github.com/ollama/ollama/issues/11171
             optional_kwargs["allowed_openai_params"] = ["tool_choice"]
 
         # Passthrough kwargs
@@ -411,7 +451,13 @@ class LitellmLLM(LLM):
             ),
         )
 
-        return from_litellm_model_response(response)
+        model_response = from_litellm_model_response(response)
+
+        # Track LLM cost for Onyx-managed API keys
+        if model_response.usage:
+            self._track_llm_cost(model_response.usage)
+
+        return model_response
 
     def stream(
         self,
@@ -444,4 +490,10 @@ class LitellmLLM(LLM):
         )
 
         for chunk in response:
-            yield from_litellm_model_response_stream(chunk)
+            model_response = from_litellm_model_response_stream(chunk)
+
+            # Track LLM cost when usage info is available (typically in the last chunk)
+            if model_response.usage:
+                self._track_llm_cost(model_response.usage)
+
+            yield model_response

@@ -327,7 +327,6 @@ export default function MCPAuthenticationModal({
           icon={SvgArrowExchange}
           title={`Authenticate ${mcpServer?.name || "MCP Server"}`}
           description="Authenticate your connection to start using the MCP server."
-          className="p-4"
         />
 
         <Formik<MCPAuthFormValues>
@@ -355,7 +354,7 @@ export default function MCPAuthenticationModal({
 
             return (
               <Form className="flex flex-col h-full">
-                <Modal.Body className="flex-1 overflow-y-auto max-h-[580px] p-2 bg-background-tint-01 w-full">
+                <Modal.Body>
                   <div className="flex flex-col gap-4 p-2">
                     {/* Authentication Type */}
                     <FormField
@@ -502,11 +501,11 @@ export default function MCPAuthenticationModal({
 
                       {/* Info Text */}
                       <div className="flex flex-col gap-2">
-                        <Text text03 secondaryBody>
+                        <Text as="p" text03 secondaryBody>
                           Client ID and secret are optional if the server
                           connection supports Dynamic Client Registration (DCR).
                         </Text>
-                        <Text text03 secondaryBody>
+                        <Text as="p" text03 secondaryBody>
                           If your server does not support DCR, you need register
                           your Onyx instance with the server provider to obtain
                           these credentials first. Make sure to grant Onyx
@@ -516,6 +515,7 @@ export default function MCPAuthenticationModal({
                         {/* Redirect URI */}
                         <div className="flex items-center gap-1 w-full">
                           <Text
+                            as="p"
                             text03
                             secondaryBody
                             className="whitespace-nowrap"
@@ -527,6 +527,7 @@ export default function MCPAuthenticationModal({
                             :
                           </Text>
                           <Text
+                            as="p"
                             text04
                             className="font-mono text-[12px] leading-[16px] truncate"
                           >
@@ -639,7 +640,7 @@ export default function MCPAuthenticationModal({
                   )}
                 </Modal.Body>
 
-                <Modal.Footer className="gap-2">
+                <Modal.Footer>
                   <Button
                     main
                     tertiary

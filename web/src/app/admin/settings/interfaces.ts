@@ -43,17 +43,19 @@ export interface Settings {
 
 export enum NotificationType {
   PERSONA_SHARED = "persona_shared",
-  REINDEX_NEEDED = "reindex_needed",
+  REINDEX = "reindex",
   TRIAL_ENDS_TWO_DAYS = "two_day_trial_ending",
 }
 
 export interface Notification {
   id: number;
   notif_type: string;
-  time_created: string;
+  title: string;
+  description: string | null;
   dismissed: boolean;
   additional_data?: {
     persona_id?: number;
+    link?: string;
     [key: string]: any;
   };
 }
@@ -69,6 +71,7 @@ export interface EnterpriseSettings {
   application_name: string | null;
   use_custom_logo: boolean;
   use_custom_logotype: boolean;
+  logo_display_style: "logo_and_name" | "logo_only" | "name_only" | null;
 
   // custom navigation
   custom_nav_items: NavigationItem[];
@@ -80,6 +83,9 @@ export interface EnterpriseSettings {
   custom_popup_header: string | null;
   custom_popup_content: string | null;
   enable_consent_screen: boolean | null;
+  consent_screen_prompt: string | null;
+  show_first_visit_notice: boolean | null;
+  custom_greeting_message: string | null;
 }
 
 export interface CombinedSettings {

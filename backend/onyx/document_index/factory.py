@@ -1,18 +1,13 @@
 import httpx
 from sqlalchemy.orm import Session
 
-from onyx.configs.app_configs import (
-    DOCUMENT_INDEX_TYPE,
-    SURREALDB_ENDPOINT,
-    SURREALDB_NAMESPACE,
-    SURREALDB_DATABASE,
-    SURREALDB_USER,
-    SURREALDB_PASSWORD,
-)
-from onyx.configs.constants import DocumentIndexType
+from onyx.configs.app_configs import ENABLE_OPENSEARCH_FOR_ONYX
 from onyx.db.models import SearchSettings
 from onyx.db.search_settings import get_current_search_settings
 from onyx.document_index.interfaces import DocumentIndex
+from onyx.document_index.opensearch.opensearch_document_index import (
+    OpenSearchOldDocumentIndex,
+)
 from onyx.document_index.vespa.index import VespaIndex
 from onyx.document_index.surrealdb.index import SurrealDBIndex
 from shared_configs.configs import MULTI_TENANT
@@ -33,30 +28,24 @@ def get_default_document_index(
         secondary_index_name = secondary_search_settings.index_name
         secondary_large_chunks_enabled = secondary_search_settings.large_chunks_enabled
 
-    if DOCUMENT_INDEX_TYPE == DocumentIndexType.SURREALDB:
-        return SurrealDBIndex(
+    if ENABLE_OPENSEARCH_FOR_ONYX:
+        return OpenSearchOldDocumentIndex(
             index_name=search_settings.index_name,
             secondary_index_name=secondary_index_name,
             large_chunks_enabled=search_settings.large_chunks_enabled,
             secondary_large_chunks_enabled=secondary_large_chunks_enabled,
             multitenant=MULTI_TENANT,
             httpx_client=httpx_client,
-            endpoint=SURREALDB_ENDPOINT,
-            namespace=SURREALDB_NAMESPACE,
-            database=SURREALDB_DATABASE,
-            username=SURREALDB_USER,
-            password=SURREALDB_PASSWORD,
         )
-
-    # Default to Vespa
-    return VespaIndex(
-        index_name=search_settings.index_name,
-        secondary_index_name=secondary_index_name,
-        large_chunks_enabled=search_settings.large_chunks_enabled,
-        secondary_large_chunks_enabled=secondary_large_chunks_enabled,
-        multitenant=MULTI_TENANT,
-        httpx_client=httpx_client,
-    )
+    else:
+        return VespaIndex(
+            index_name=search_settings.index_name,
+            secondary_index_name=secondary_index_name,
+            large_chunks_enabled=search_settings.large_chunks_enabled,
+            secondary_large_chunks_enabled=secondary_large_chunks_enabled,
+            multitenant=MULTI_TENANT,
+            httpx_client=httpx_client,
+        )
 
 
 def get_current_primary_default_document_index(db_session: Session) -> DocumentIndex:

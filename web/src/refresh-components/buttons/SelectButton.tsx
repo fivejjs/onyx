@@ -93,7 +93,8 @@ export interface SelectButtonProps {
 
   // Content
   children: string;
-  leftIcon: React.FunctionComponent<IconProps>;
+  leftIcon?: React.FunctionComponent<IconProps>;
+  rightIcon?: React.FunctionComponent<IconProps>;
   rightChevronIcon?: boolean;
   onClick?: () => void;
   className?: string;
@@ -110,10 +111,13 @@ export default function SelectButton({
 
   children,
   leftIcon: LeftIcon,
+  rightIcon: RightIcon,
   rightChevronIcon,
   onClick,
   className,
 }: SelectButtonProps) {
+  const hasRightIcon = !!RightIcon;
+  const hasLeftIcon = !!LeftIcon;
   const variant = main ? "main" : action ? "action" : "main";
   const state = disabled ? "disabled" : "enabled";
 
@@ -137,7 +141,9 @@ export default function SelectButton({
   const content = useMemo(
     () => (
       <div className="flex flex-row items-center justify-center">
-        <Text className={cn("whitespace-nowrap", textClasses)}>{children}</Text>
+        <Text as="p" className={cn("whitespace-nowrap", textClasses)}>
+          {children}
+        </Text>
 
         {rightChevronIcon && (
           <SvgChevronDownSmall
@@ -167,7 +173,7 @@ export default function SelectButton({
       <button
         className={cn(
           baseClasses,
-          "group/SelectButton flex items-center px-2 py-1 rounded-12 h-fit w-fit",
+          "group/SelectButton flex items-center px-2 py-2 rounded-12 h-fit w-fit",
           className
         )}
         onClick={disabled ? undefined : onClick}
@@ -176,13 +182,15 @@ export default function SelectButton({
         onMouseOver={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* Static icon component */}
-        <LeftIcon className={cn("w-[1rem] h-[1rem]", iconClasses)} />
+        {/* Left icon */}
+        {hasLeftIcon && LeftIcon && (
+          <LeftIcon className={cn("w-[1rem] h-[1rem]", iconClasses)} />
+        )}
 
         {/* Animation component */}
         <div
           className={cn(
-            "flex items-center transition-all duration-300 ease-in-out overflow-hidden py-0.5",
+            "flex items-center transition-all duration-300 ease-in-out overflow-hidden",
             folded
               ? engaged || transient || hovered
                 ? "opacity-100"
@@ -197,13 +205,22 @@ export default function SelectButton({
               : `${foldedContentWidth}px`,
             margin: folded
               ? engaged || transient || hovered
-                ? `0px 0px 0px ${MARGIN}px`
+                ? hasRightIcon
+                  ? `0px ${MARGIN}px 0px 0px`
+                  : `0px 0px 0px ${MARGIN}px`
                 : "0px"
-              : `0px 0px 0px ${MARGIN}px`,
+              : hasRightIcon
+                ? `0px ${MARGIN}px 0px 0px`
+                : `0px 0px 0px ${MARGIN}px`,
           }}
         >
           {content}
         </div>
+
+        {/* Right icon */}
+        {hasRightIcon && RightIcon && (
+          <RightIcon className={cn("w-[1rem] h-[1rem]", iconClasses)} />
+        )}
       </button>
     </>
   );

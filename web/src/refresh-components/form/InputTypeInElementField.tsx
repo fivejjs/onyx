@@ -6,7 +6,8 @@ import InputTypeIn, {
 } from "@/refresh-components/inputs/InputTypeIn";
 import IconButton from "@/refresh-components/buttons/IconButton";
 import { SvgMinusCircle } from "@opal/icons";
-import { useOnChangeEvent } from "@/hooks/formHooks";
+import { useOnChangeEvent, useOnBlurEvent } from "@/hooks/formHooks";
+import { Section } from "@/layouts/general-layouts";
 
 export interface InputTypeInElementFieldProps
   extends Omit<InputTypeInProps, "value" | "onClear"> {
@@ -19,23 +20,25 @@ export default function InputTypeInElementField({
   name,
   onRemove,
   onChange: onChangeProp,
+  onBlur: onBlurProp,
   ...inputProps
 }: InputTypeInElementFieldProps) {
   const [field, meta] = useField(name);
   const onChange = useOnChangeEvent(name, onChangeProp);
+  const onBlur = useOnBlurEvent(name, onBlurProp);
   const hasError = meta.touched && meta.error;
   const isEmpty = !field.value || field.value.trim() === "";
 
   return (
-    <div className="flex flex-row items-center gap-1">
+    <Section flexDirection="row" gap={0.25}>
       {/* Input */}
       <InputTypeIn
         {...inputProps}
         id={name}
         name={name}
-        value={field.value || ""}
+        value={field.value ?? ""}
         onChange={onChange}
-        onBlur={field.onBlur}
+        onBlur={onBlur}
         error={!!hasError}
         showClearButton={false}
       />
@@ -46,6 +49,6 @@ export default function InputTypeInElementField({
         onClick={onRemove}
         tooltip="Remove"
       />
-    </div>
+    </Section>
   );
 }
